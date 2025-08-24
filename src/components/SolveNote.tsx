@@ -3,6 +3,7 @@ import { Header } from "./Header";
 import { NoteEditor } from "./NoteEditor";
 import { AISuggestions } from "./AISuggestions";
 import { toast } from "@/hooks/use-toast";
+import { Brain } from "lucide-react";
 
 // Mock user data - will be replaced with actual authentication
 const mockUser = { email: "demo@example.com" };
@@ -133,7 +134,7 @@ export const SolveNote = () => {
   }, [isPremium]);
 
   return (
-    <div className="min-h-screen bg-gradient-surface">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50">
       <Header
         user={user}
         isPremium={isPremium}
@@ -143,8 +144,20 @@ export const SolveNote = () => {
         onLogout={handleLogout}
       />
       
-      <main className="container mx-auto px-4 py-8">
-        <div className="grid lg:grid-cols-2 gap-8 max-w-7xl mx-auto">
+      <main className="container mx-auto px-6 py-12">
+        {/* Welcome Section */}
+        {user && (
+          <div className="text-center mb-12">
+            <h1 className="text-4xl font-bold text-foreground mb-4 tracking-tight">
+              Hello there! 👋
+            </h1>
+            <p className="text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+              What challenge can I help you solve today? Describe any problem you're facing, and I'll provide personalized solutions.
+            </p>
+          </div>
+        )}
+        
+        <div className="grid lg:grid-cols-2 gap-12 max-w-7xl mx-auto">
           <NoteEditor
             credits={credits}
             onGetSuggestion={handleGetSuggestion}
@@ -158,19 +171,45 @@ export const SolveNote = () => {
           />
         </div>
         
+        {/* Credit Status for Free Users */}
+        {user && !isPremium && (
+          <div className="mt-12 text-center">
+            <div className="inline-flex items-center gap-3 bg-white rounded-full px-6 py-3 shadow-lg border border-gray-200">
+              <div className="w-2 h-2 bg-success rounded-full animate-pulse"></div>
+              <span className="text-sm font-medium text-muted-foreground">
+                {credits > 0 
+                  ? `${credits} free solutions remaining today • Resets at midnight`
+                  : "Free solutions used up • Upgrade for unlimited access"
+                }
+              </span>
+            </div>
+          </div>
+        )}
+        
         {!user && (
-          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="text-center space-y-6 max-w-md mx-auto p-8">
-              <h2 className="text-2xl font-bold text-gradient">Welcome to SolveNote</h2>
-              <p className="text-muted-foreground">
-                Sign in to start using AI-powered problem solving and note-taking.
-              </p>
-              <button
-                onClick={handleLogin}
-                className="px-6 py-3 bg-gradient-primary text-primary-foreground rounded-lg shadow-lg hover:opacity-90 transition-all"
-              >
-                Get Started
-              </button>
+          <div className="fixed inset-0 bg-white/95 backdrop-blur-md flex items-center justify-center z-50">
+            <div className="text-center space-y-8 max-w-lg mx-auto p-8">
+              <div className="w-20 h-20 mx-auto bg-gradient-primary rounded-2xl flex items-center justify-center shadow-xl">
+                <Brain className="w-10 h-10 text-white" />
+              </div>
+              <div>
+                <h2 className="text-3xl font-bold text-foreground mb-4">Welcome to SolveNote</h2>
+                <p className="text-lg text-muted-foreground leading-relaxed">
+                  Get personalized AI solutions to any problem or challenge you're facing. 
+                  Start with 5 free solutions daily.
+                </p>
+              </div>
+              <div className="space-y-3">
+                <button
+                  onClick={handleLogin}
+                  className="w-full px-8 py-4 bg-gradient-primary text-primary-foreground rounded-xl shadow-xl hover:opacity-90 transition-all font-semibold text-lg"
+                >
+                  Get Started Free
+                </button>
+                <p className="text-sm text-muted-foreground">
+                  No credit card required • 5 free solutions daily
+                </p>
+              </div>
             </div>
           </div>
         )}

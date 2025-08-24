@@ -143,8 +143,9 @@ All colors MUST be HSL.
   }
 
   body {
-    @apply bg-background text-foreground font-sans;
+    @apply bg-background text-foreground font-sans antialiased;
     transition: var(--transition-smooth);
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   }
 
   /* Custom utility classes */
