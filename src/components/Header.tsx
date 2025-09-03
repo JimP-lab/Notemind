@@ -8,7 +8,7 @@ interface HeaderProps {
   onUpgrade: () => void;
   onLogin: () => void;
   onLogout: () => void;
-  user?: { email: string };
+  user?: { email?: string } | null;
 }
 
 export const Header = ({ isPremium, credits, onUpgrade, onLogin, onLogout, user }: HeaderProps) => {
