@@ -57,43 +57,55 @@ export const SolveNote = () => {
 
   // Handle getting AI suggestions
   const handleGetSuggestion = async (noteContent: string) => {
-    if (!user && credits <= 0) {
-      toast({
-        title: "No credits remaining",
-        description: "Please sign in to continue.",
-        variant: "destructive",
-      });
+    if (!user) {
+      handleLogin();
       return;
     }
 
-    if (!isPremium && credits <= 0) {
-      toast({
-        title: "No credits remaining",
-        description: "Please upgrade to premium to continue.",
-        variant: "destructive",
-      });
+    if (credits <= 0 && !isPremium) {
+      handleUpgrade();
       return;
     }
 
     setIsLoading(true);
+    setSuggestions([]);
 
     try {
-      const newSuggestion = await generateAISuggestion(noteContent);
-      setSuggestions(prev => [newSuggestion, ...prev]);
-      
-      // Deduct credit for non-premium users
-      if (!isPremium) {
-        setCredits(prev => Math.max(0, prev - 1));
+      const { data, error } = await supabase.functions.invoke('chatgpt-solution', {
+        body: { problem: noteContent },
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`,
+        },
+      });
+
+      if (error) {
+        console.error('Error getting AI suggestions:', error);
+        toast({
+          title: "Error",
+          description: "Failed to get AI suggestions. Please try again.",
+          variant: "destructive",
+        });
+        return;
       }
 
-      toast({
-        title: "AI solution generated!",
-        description: "Your problem has been analyzed and solved.",
-      });
-    } catch (error) {
+      if (data?.suggestions) {
+        setSuggestions(data.suggestions);
+        
+        // Deduct credit for non-premium users
+        if (!isPremium) {
+          setCredits(prev => Math.max(0, prev - 1));
+        }
+
+        toast({
+          title: "AI Solutions Generated!",
+          description: "Your personalized solutions are ready.",
+        });
+      }
+    } catch (error: any) {
+      console.error('Error calling ChatGPT function:', error);
       toast({
         title: "Error",
-        description: "Failed to generate AI solution. Please try again.",
+        description: "Failed to generate solutions. Please try again.",
         variant: "destructive",
       });
     } finally {
