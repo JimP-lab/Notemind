@@ -18,9 +18,26 @@ export const ResetPassword = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if we have the required parameters from the email link
-    const accessToken = searchParams.get('access_token');
-    const refreshToken = searchParams.get('refresh_token');
+    // Function to extract tokens from URL fragments or query parameters
+    const extractTokensFromUrl = () => {
+      let accessToken = '';
+      let refreshToken = '';
+      
+      // First try to get from URL hash fragments
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      accessToken = hashParams.get('access_token') || '';
+      refreshToken = hashParams.get('refresh_token') || '';
+      
+      // If not found in hash, try query parameters
+      if (!accessToken || !refreshToken) {
+        accessToken = searchParams.get('access_token') || '';
+        refreshToken = searchParams.get('refresh_token') || '';
+      }
+      
+      return { accessToken, refreshToken };
+    };
+
+    const { accessToken, refreshToken } = extractTokensFromUrl();
     
     if (!accessToken || !refreshToken) {
       toast({
@@ -29,7 +46,38 @@ export const ResetPassword = () => {
         variant: "destructive",
       });
       navigate('/auth');
+      return;
     }
+
+    // Set the session with the tokens from the URL
+    const setSessionFromTokens = async () => {
+      try {
+        const { data, error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+
+        if (error) {
+          console.error('Error setting session:', error);
+          toast({
+            title: "Invalid reset link",
+            description: "This reset link is invalid or has expired.",
+            variant: "destructive",
+          });
+          navigate('/auth');
+        }
+      } catch (error) {
+        console.error('Error setting session:', error);
+        toast({
+          title: "Invalid reset link",
+          description: "This reset link is invalid or has expired.",
+          variant: "destructive",
+        });
+        navigate('/auth');
+      }
+    };
+
+    setSessionFromTokens();
   }, [searchParams, navigate]);
 
   const handleResetPassword = async (e: React.FormEvent) => {
