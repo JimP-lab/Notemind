@@ -74,12 +74,49 @@ export type Database = {
         }
         Relationships: []
       }
+      user_credits: {
+        Row: {
+          created_at: string | null
+          credits_remaining: number
+          id: string
+          is_unlimited: boolean
+          last_reset_date: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          credits_remaining?: number
+          id?: string
+          is_unlimited?: boolean
+          last_reset_date?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          credits_remaining?: number
+          id?: string
+          is_unlimited?: boolean
+          last_reset_date?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      grant_unlimited_credits: {
+        Args: { user_email: string }
+        Returns: undefined
+      }
+      reset_daily_credits: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
