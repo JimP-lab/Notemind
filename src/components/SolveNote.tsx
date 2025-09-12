@@ -7,6 +7,7 @@ import { Button } from './ui/button';
 import { Sparkles, BookOpen, Target } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCredits } from '@/hooks/useCredits';
 import { supabase } from '@/integrations/supabase/client';
 
 interface Suggestion {
@@ -18,42 +19,12 @@ interface Suggestion {
 
 export const SolveNote = () => {
   const { user, isPremium, signOut, session, loading } = useAuth();
+  const { credits, isUnlimited, useCredit, refreshCredits } = useCredits();
   const navigate = useNavigate();
-  const [credits, setCredits] = useState(3);
   
   // AI suggestions state
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-
-  // Mock AI suggestion generation
-  const generateAISuggestion = async (content: string): Promise<Suggestion> => {
-    // Simulate API delay
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    const responses = [
-      {
-        type: 'solution' as const,
-        content: "Break this problem down into smaller, manageable steps. Start by identifying the core issue, then brainstorm 3-5 potential solutions. Evaluate each based on feasibility and impact."
-      },
-      {
-        type: 'insight' as const,
-        content: "Consider approaching this from a different angle. Sometimes stepping back and looking at the bigger picture reveals new opportunities or approaches you might have missed."
-      },
-      {
-        type: 'action' as const,
-        content: "Create a timeline with specific milestones. Set a deadline for the first step and begin immediately. Having a concrete plan increases your chances of success by 70%."
-      }
-    ];
-
-    const response = responses[Math.floor(Math.random() * responses.length)];
-    
-    return {
-      id: Math.random().toString(36).substr(2, 9),
-      content: response.content,
-      timestamp: new Date(),
-      type: response.type
-    };
-  };
 
   // Handle getting AI suggestions
   const handleGetSuggestion = async (noteContent: string) => {
@@ -62,7 +33,7 @@ export const SolveNote = () => {
       return;
     }
 
-    if (credits <= 0 && !isPremium) {
+    if (credits <= 0 && !isUnlimited) {
       handleUpgrade();
       return;
     }
@@ -71,6 +42,16 @@ export const SolveNote = () => {
     setSuggestions([]);
 
     try {
+      // Use a credit first (only if not unlimited)
+      let creditUsed = true;
+      if (!isUnlimited) {
+        creditUsed = await useCredit();
+        if (!creditUsed) {
+          handleUpgrade();
+          return;
+        }
+      }
+
       const { data, error } = await supabase.functions.invoke('chatgpt-solution', {
         body: { problem: noteContent },
         headers: {
@@ -90,11 +71,6 @@ export const SolveNote = () => {
 
       if (data?.suggestions) {
         setSuggestions(data.suggestions);
-        
-        // Deduct credit for non-premium users
-        if (!isPremium) {
-          setCredits(prev => Math.max(0, prev - 1));
-        }
 
         toast({
           title: "AI Solutions Generated!",
@@ -172,14 +148,7 @@ export const SolveNote = () => {
   // Handle URL parameters for success/cancel from Stripe
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    if (urlParams.get('success') === 'true') {
-      toast({
-        title: "Payment successful!",
-        description: "Welcome to SolveNote Premium! Enjoy unlimited AI solutions.",
-      });
-      // Clean up URL
-      window.history.replaceState({}, document.title, window.location.pathname);
-    } else if (urlParams.get('canceled') === 'true') {
+    if (urlParams.get('canceled') === 'true') {
       toast({
         title: "Payment canceled",
         description: "Your payment was canceled. You can try again anytime.",
@@ -189,6 +158,17 @@ export const SolveNote = () => {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, []);
+
+  // Refresh credits when returning from successful payment
+  useEffect(() => {
+    if (user && isPremium) {
+      refreshCredits();
+      toast({
+        title: "Welcome to Premium!",
+        description: "You now have unlimited AI solutions. Enjoy!",
+      });
+    }
+  }, [isPremium]);
 
   // Show loading while auth is initializing
   if (loading) {
@@ -208,7 +188,7 @@ export const SolveNote = () => {
     <div className="min-h-screen bg-gradient-to-br from-background via-background/95 to-surface">
       <Header 
         isPremium={isPremium}
-        credits={credits}
+        credits={isUnlimited ? 999999 : credits}
         onUpgrade={handleUpgrade}
         onLogin={handleLogin}
         onLogout={handleLogout}
@@ -230,7 +210,7 @@ export const SolveNote = () => {
         
         <div className="grid lg:grid-cols-2 gap-12 max-w-7xl mx-auto">
           <NoteEditor
-            credits={credits}
+            credits={isUnlimited ? 999999 : credits}
             onGetSuggestion={handleGetSuggestion}
             onUpgrade={handleUpgrade}
             isPremium={isPremium}
@@ -243,7 +223,7 @@ export const SolveNote = () => {
         </div>
         
         {/* Credit Status for Free Users */}
-        {user && !isPremium && (
+        {user && !isUnlimited && (
           <div className="mt-12 text-center">
             <div className="inline-flex items-center gap-3 bg-white/80 backdrop-blur-sm rounded-full px-6 py-3 shadow-lg border border-border">
               <div className="w-2 h-2 bg-success rounded-full animate-pulse"></div>

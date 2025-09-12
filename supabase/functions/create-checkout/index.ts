@@ -58,14 +58,14 @@ serve(async (req) => {
               name: "SolveNote Premium - Unlimited AI Solutions",
               description: "Get unlimited AI-powered problem solving with premium features"
             },
-            unit_amount: 0, // $9.97/month
+            unit_amount: 997, // $9.97/month
             recurring: { interval: "month" },
           },
           quantity: 1,
         },
       ],
       mode: "subscription",
-      success_url: `${req.headers.get("origin")}/?success=true`,
+      success_url: `${req.headers.get("origin")}/`,
       cancel_url: `${req.headers.get("origin")}/?canceled=true`,
     });
 

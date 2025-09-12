@@ -11,3 +11,12 @@ verify_jwt = true
 
 [functions.chatgpt-solution]
 verify_jwt = true
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.get-user-credits]
+verify_jwt = true
+
+[functions.use-credit]
+verify_jwt = true
