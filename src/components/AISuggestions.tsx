@@ -127,7 +127,7 @@ export const AISuggestions = ({ suggestions, isLoading }: AISuggestionsProps) =>
                     </p>
                     <div className="flex items-center justify-between pt-2 border-t border-gray-100">
                       <p className="text-xs text-muted-foreground">
-                        Generated at {suggestion.timestamp.toLocaleTimeString()}
+                        Generated at {new Date(suggestion.timestamp).toLocaleTimeString()}
                       </p>
                       <div className="opacity-0 group-hover:opacity-100 transition-opacity">
                         <Button variant="ghost" size="sm" className="text-xs">
