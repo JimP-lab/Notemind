@@ -13,4 +13,9 @@ This project is built with:
 - TypeScript
 - React
 - shadcn-ui
-- Tailwind CSS
+- Tailwind CS
+- Supabase
+- Stripe
+
+# stripe documents 
+https://docs.stripe.com/testing
