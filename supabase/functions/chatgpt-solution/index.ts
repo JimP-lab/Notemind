@@ -181,7 +181,7 @@ serve(async (req) => {
       );
     }
 
-    console.log('Generating tailored solution for problem:', problem);
+    console.log('Generating tailored solution for problem:', problem.slice(0, 50));
 
     // Generate tailored solutions based on problem analysis
     const suggestions = generateTailoredSuggestions(problem);
