@@ -1,9 +1,90 @@
+// @ts-nocheck
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+// In some environments (local TypeScript checks) `process` may be unknown; declare
+declare const process: any;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// NOTE: To enable OpenAI-powered suggestions, set the environment variable
+// OPENAI_API_KEY in your Supabase project (or local env) to your OpenAI API key.
+// This code will use the key to call the Chat Completions API and expects the
+// model to return a JSON array of suggestion objects like:
+// [{"type":"solution","content":"..."}, ...]
+// If the key is not present or the OpenAI call fails, the function falls back
+// to the built-in `generateTailoredSuggestions` logic below.
+
+async function callOpenAIForSuggestions(problem: string) {
+  try {
+    // Access environment variable in a way that works in Deno and local Node (for testing)
+    const apiKey = (globalThis as any)?.Deno?.env?.get?.('OPENAI_API_KEY') ?? (typeof process !== 'undefined' ? process.env.OPENAI_API_KEY : undefined);
+    if (!apiKey) return null;
+
+    const promptSystem = `You are an assistant that generates 3 helpful suggestion objects for a user's problem. Respond ONLY with valid JSON: an array of objects with the fields: type (one of \"solution\", \"insight\", \"action\"), and content (a concise helpful suggestion). Example: [{"type":"solution","content":"..."},{"type":"insight","content":"..."},{"type":"action","content":"..."}]`;
+    const promptUser = `Problem: ${problem}\n\nGenerate 3 useful suggestions (solution, insight, action) tailored to the problem.`;
+
+    const body = {
+      model: 'gpt-3.5-turbo',
+      messages: [
+        { role: 'system', content: promptSystem },
+        { role: 'user', content: promptUser }
+      ],
+      temperature: 0.7,
+      max_tokens: 800
+    };
+
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify(body)
+    });
+
+    if (!res.ok) {
+      console.error('OpenAI response error', res.status, await res.text());
+      return null;
+    }
+
+    const data = await res.json();
+    const raw = data?.choices?.[0]?.message?.content;
+    if (!raw) return null;
+
+    // Try to parse the assistant content as JSON. If it isn't valid JSON,
+    // attempt to extract a JSON substring.
+    let parsed = null;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (err) {
+      // Attempt to find a JSON array inside the text
+      const m = raw.match(/\[\s*\{[\s\S]*\}\s*\]/);
+      if (m) {
+        try {
+          parsed = JSON.parse(m[0]);
+        } catch (_) {
+          parsed = null;
+        }
+      }
+    }
+
+  if (!Array.isArray(parsed)) return null;
+
+    // Normalize parsed items to expected shape
+    const normalized = parsed.map((item: any) => ({
+      type: (item.type || 'solution'),
+      content: (item.content || String(item)).trim()
+    }));
+
+    return normalized;
+  } catch (e) {
+    console.error('Error calling OpenAI:', e);
+    return null;
+  }
+}
 
 // Generate tailored suggestions based on problem analysis
 function generateTailoredSuggestions(problem: string) {
@@ -22,9 +103,9 @@ function generateTailoredSuggestions(problem: string) {
   };
 
   let categoryMatch = 'general';
-  for (const [category, keywords] of Object.entries(categories)) {
+  for (const [category, keywords] of Object.entries(categories) as Array<[keyof typeof categories, string[]]>) {
     if (keywords.some(keyword => lowerProblem.includes(keyword))) {
-      categoryMatch = category;
+      categoryMatch = category as string;
       break;
     }
   }
@@ -159,10 +240,12 @@ function generateTailoredSuggestions(problem: string) {
     ]
   };
 
-  return suggestionTemplates[categoryMatch] || suggestionTemplates.general;
+  // Type-safe access into suggestionTemplates
+  const key = categoryMatch as keyof typeof suggestionTemplates;
+  return suggestionTemplates[key] ?? suggestionTemplates.general;
 }
 
-serve(async (req) => {
+serve(async (req: Request) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -183,8 +266,13 @@ serve(async (req) => {
 
     console.log('Generating tailored solution for problem:', problem.slice(0, 50));
 
-    // Generate tailored solutions based on problem analysis
-    const suggestions = generateTailoredSuggestions(problem);
+    // First attempt: call OpenAI if available
+    let suggestions = await callOpenAIForSuggestions(problem);
+
+    // If OpenAI not configured or returned invalid data, fall back to the local generator
+    if (!suggestions || suggestions.length === 0) {
+      suggestions = generateTailoredSuggestions(problem);
+    }
 
     // Ensure we have the right structure and add IDs and timestamps
     const formattedSuggestions = suggestions.map((suggestion: any, index: number) => ({
@@ -199,12 +287,13 @@ serve(async (req) => {
     return new Response(JSON.stringify({ suggestions: formattedSuggestions }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
-  } catch (error) {
-    console.error('Error in chatgpt-solution function:', error);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error('Error in chatgpt-solution function:', msg);
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         error: 'Failed to generate solution',
-        details: error.message 
+        details: msg
       }),
       {
         status: 500,
